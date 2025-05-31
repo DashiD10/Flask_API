@@ -1,159 +1,627 @@
-from models import (
-    Groups,
-    Students, 
-    OnlineLessons,
-    StudentsOnlineLessons,
-    HomeworksStudents,
-    StudentsReviews,
-)
+# """
+# Модуль utils.py
 
-from peewee import DoesNotExist
+# Содержит функции для работы с моделями базы данных (Groups, Students) с использованием ORM peewee.
 
-group_name = "Python413"
+# Функции:
+
+# serialize_model_instance(instance, expand_fields: Optional[List[str]] = None) -> dict
+#     Сериализует объект модели в словарь, поддерживает раскрытие связанных объектов (expand).
+
+# serialize_to_json(instance, expand_fields: Optional[List[str]] = None) -> str
+#     Сериализует объект модели в JSON-строку.
+
+# get_group_by_id(group_id: int) -> Optional[Groups]
+#     Возвращает группу по ID или None, если не найдено.
+
+# create_group(group_name: str) -> Groups
+#     Создаёт новую группу с заданным именем.
+
+# delete_group_id(group_id: int) -> bool
+#     Удаляет группу по ID. Возвращает True при успехе.
+
+# update_group_id(group_id: int, new_group_name: str) -> Optional[Groups]
+#     Обновляет имя группы по ID. Возвращает обновлённую группу.
+
+# get_groups_list(sort_direction: str = "asc", name_filter: Optional[str] = None) -> list
+#     Возвращает список групп с возможностью сортировки и фильтрации по имени.
+
+# get_student_by_id(student_id: int, expand_fields: Optional[List[str]] = None) -> Optional[Dict[str, Any]]
+#     Возвращает студента по ID с возможностью раскрытия связанных объектов.
+
+# create_student(first_name: str, last_name: str, group_id: int, middle_name: Optional[str] = None, notes: Optional[str] = None) -> Dict[str, Any]
+#     Создаёт нового студента.
+
+# update_student_by_id(student_id: int, **kwargs) -> Optional[Dict[str, Any]]
+#     Обновляет данные студента по ID.
+
+# delete_student_by_id(student_id: int) -> bool
+#     Удаляет студента по ID. Возвращает True при успехе.
+
+# get_students_list(group_id: Optional[int] = None, name_filter: Optional[str] = None, sort_by: str = "last_name", sort_direction: str = "asc", expand_fields: Optional[List[str]] = None, limit: Optional[int] = None, offset: Optional[int] = None) -> List[Students]
+#     Возвращает список студентов с фильтрацией, сортировкой и пагинацией.
+
+# get_students_by_group_name(group_name: str, expand_fields: Optional[List[str]] = None) -> List[Dict[str, Any]]
+#     Возвращает список студентов по названию группы.
+# """
+
+# from models import Groups, Students
+# from peewee import DoesNotExist, IntegrityError
+# import json
+# import datetime
+# from typing import Optional, List, Dict, Any
 
 
-try:
-    group = Groups.get(group_name=group_name)
-except DoesNotExist:
-    group = None
+# # Улучшенная функция сериализации с поддержкой expand для связанных объектов
+# def serialize_model_instance(instance, expand_fields: Optional[List[str]] = None):
+#     """
+#     Сериализует объект модели в словарь, включая только определенные поля.
 
-print(f'Результат поиска группы по запросу "{group_name}": {group}')
-print(type(group))
+#     Args:
+#         instance: Экземпляр модели для сериализации
+#         expand_fields: Список полей для раскрытия связанных объектов (например, ['group'])
+#     """
+#     serialized_data = {}
+#     expand_fields = expand_fields or []
 
-if group:
-    print(f"Группа: {group.group_name}")
-    print(f"Дата создания: {group.created_at}")
+#     # _meta.sorted_fields позволяет получить все поля модели в порядке их определения
+#     for field in instance._meta.sorted_fields:
+#         field_data = getattr(instance, field.name)
+
+#         # Проверяем если это ForeignKey и нужно его раскрыть
+#         # rel_model - это модель, на которую ссылается ForeignKey
+#         if (
+#             hasattr(field, "rel_model")
+#             and field.name.replace("_id", "") in expand_fields
+#         ):
+#             # Получаем связанный объект
+#             related_field_name = field.name.replace("_id", "")
+#             if hasattr(instance, related_field_name):
+#                 related_object = getattr(instance, related_field_name)
+#                 serialized_data[related_field_name] = serialize_model_instance(
+#                     related_object
+#                 )
+#             continue
+
+#         # Проверяем если данные являются объектом даты или времени - превращаем их в строку
+#         if isinstance(field_data, (datetime.date, datetime.datetime)):
+#             serialized_data[field.name] = field_data.isoformat()
+#         else:
+#             serialized_data[field.name] = field_data
+
+#     return serialized_data
 
 
-group_name_like = "python"
-
-groups_like = Groups.select().where(
-    Groups.group_name.contains(group_name_like)
-)
-groups_like2 = Groups.get(Groups.group_name.contains("413"))
-
-print(type(groups_like))
-print(type(groups_like2))
-
-print(f"Содержание переменной groups_like: {groups_like}")
-print(f"Содержание переменной groups_like2: {groups_like2}")
-
-print(f"Длина коллекции groups_like: {len(groups_like)}")
-if len(groups_like) > 0:
-    print(f"Название группы из первого элемента коллекции groups_like: {groups_like[0].group_name}")
+# def serialize_to_json(instance, expand_fields: Optional[List[str]] = None):
+#     """
+#     Сериализует объект модели в JSON строку.
+#     """
+#     serialized_data = serialize_model_instance(instance, expand_fields)
+#     return json.dumps(serialized_data, indent=4, ensure_ascii=False)
 
 
-group_0 = groups_like[0]
-all_students = group_0.students
+# def get_group_by_id(group_id: int) -> Optional[Groups]:
+#     """
+#     Получает группу по ID.
+#     """
+#     try:
+#         group = Groups.get(Groups.id == group_id)
+#         return group
+#     except DoesNotExist:
+#         return None
 
-[print(f'{student.first_name} {student.last_name}') for student in all_students]
 
-where_1 = "python"
-where_2 = "413"
+# def create_group(group_name: str) -> Groups:
+#     """
+#     Создает новую группу с заданным именем.
+#     """
+#     try:
+#         group = Groups.create(group_name=group_name)
+#         return group
+#     # IntegrityError - нарушение целостности данных (уникальность, внежний ключ и т.д.)
+#     except IntegrityError:
+#         print("Группа с таким именем уже существует.")
+#         raise
 
-all_groups = Groups.select()
 
-all_groups = all_groups.where(Groups.group_name.contains(where_1))
-all_groups = all_groups.where(Groups.group_name.contains(where_2))
+# def delete_group_id(group_id: int) -> bool:
+#     """
+#     Удаляет группу по ID.
+#     """
+#     try:
+#         group = Groups.get(Groups.id == group_id)
+#         group.delete_instance()
+#         return True
+#     except DoesNotExist:
+#         print("Группа не найдена.")
+#         raise
+#     except IntegrityError:
+#         print("Невозможно удалить группу, так как она связана с другими записями.")
+#         raise
 
-print(f"Тип данных all_groups: {type(all_groups)}")
-print(f"Длина коллекции all_groups: {len(all_groups)}")
 
-[print(group) for group in all_groups]
+# def update_group_id(group_id: int, new_group_name: str) -> Optional[Groups]:
+#     """
+#     Обновляет имя группы по ID.
+#     """
+#     try:
+#         group = Groups.get(Groups.id == group_id)
+#         group.group_name = new_group_name
+#         group.save()
+#         return group
+#     except DoesNotExist:
+#         print("Группа не найдена.")
+#         raise
+#     except IntegrityError:
+#         print("Невозможно обновить группу, так как новое имя уже существует.")
+#         raise
 
-# 4. Выборка ВСЕ СТУДЕТЫ + JOIN GROUPS - чтобы отобразить читаемые названия групп
-group_name = "python413"
-group = Groups.get(Groups.group_name == group_name)
- 
-# Выборка всех студентов из группы python413
-all_students = Students.select() # Доступ к названим групп тут будет, НО для каждого студента будет отдельный запрос к БД
- 
-# Выборка студентов из группы python413 если у нас на руках есть объект группы
-students_413 = Students.select().where(Students.group_id == group)
- 
- 
-# Если у нас только название группы в виде строки, то нам нужен явный JOIN
-# Так же эта штука поможет решить проблему N+1 запросов, когда мы получаем студентов и для каждого студента делаем отдельный запрос к БД для получения названия группы (как в прошлом примере)
-students_413 = (
-    Students.select()
-    .join(Groups)
-    .where(Groups.group_name == group_name)
-)
- 
-# Тесты - просто подствим сюда разные переменные выше из пункта 4
-print(f"Тип данных all_students: {type(students_413)}")
-print(f"Длинна коллекции all_students: {len(students_413)}")
- 
-[print(f"{student.first_name} {student.last_name} - {student.group_id.group_name}") for student in students_413]
- 
 
-# 5
-students_413 = (
-    Students.select(Students.first_name, Students.last_name, Groups.group_name)
-    .join(Groups)
-    .where(Groups.group_name == group_name)
-)
+# def get_groups_list(
+#     sort_direction: str = "asc", name_filter: Optional[str] = None
+# ) -> list:
+#     """
+#     Получает список групп с возможностью сортировки и фильтрации по имени.
+#     """
+#     query = Groups.select()
 
-for student in students_413:
-    print(f"{student.first_name} {student.last_name} - {student.group_id.group_name}")
+#     if name_filter:
+#         query = query.where(Groups.group_name.contains(name_filter))
 
-# 6
-students_413 = (
-    Students.select()
-    .join(Groups)
-    .where(Groups.group_name == "python413")
-    .prefetch(Groups)
-)
+#     if sort_direction == "asc":
+#         query = query.order_by(Groups.group_name.asc())
+#     elif sort_direction == "desc":
+#         query = query.order_by(Groups.group_name.desc())
 
-for student in students_413:
-    print(f"{student.first_name} {student.last_name} - {student.group_id.group_name}")
+#     return list(query)
 
-#  7 Найти всех студентов где в first_name входит алекс или влад
-print(f'*' * 50)
 
-students = (
-    Students.select()
-    .where(
-        (Students.first_name.contains("лекс"))
-        | (Students.first_name.contains("лад"))
+# # ========== ФУНКЦИИ ДЛЯ РАБОТЫ СО СТУДЕНТАМИ ==========
+
+
+# def get_student_by_id(
+#     student_id: int, expand_fields: Optional[List[str]] = None
+# ) -> Optional[Dict[str, Any]]:
+#     """
+#     Получает студента по ID с возможностью раскрытия связанных объектов.
+
+#     Args:
+#         student_id: ID студента
+#         expand_fields: Список полей для раскрытия (например, ['group'])
+
+#     Returns:
+#         Словарь с данными студента или None если не найден
+#     """
+#     try:
+#         # Используем join для эффективного получения связанных данных
+#         query = Students.select()
+#         if expand_fields and "group" in expand_fields:
+#             query = query.join(Groups)
+
+#         student = query.where(Students.id == student_id).get()
+#         return serialize_model_instance(student, expand_fields)
+#     except DoesNotExist:
+#         return None
+
+
+# def create_student(
+#     first_name: str,
+#     last_name: str,
+#     group_id: int,
+#     middle_name: Optional[str] = None,
+#     notes: Optional[str] = None,
+# ) -> Dict[str, Any]:
+#     """
+#     Создает нового студента.
+
+#     Args:
+#         first_name: Имя
+#         last_name: Фамилия
+#         group_id: ID группы
+#         middle_name: Отчество (опционально)
+#         notes: Заметки (опционально)
+
+#     Returns:
+#         Словарь с данными созданного студента
+
+#     Raises:
+#         DoesNotExist: Если группа с указанным ID не существует
+#         IntegrityError: При нарушении ограничений БД
+#     """
+#     try:
+#         # Проверяем существование группы
+#         group = Groups.get(Groups.id == group_id)
+
+#         # Создаем студента
+#         student = Students.create(
+#             first_name=first_name,
+#             last_name=last_name,
+#             middle_name=middle_name,
+#             group_id=group_id,
+#             notes=notes,
+#             updated_at=datetime.datetime.now(),
+#         )
+
+#         return serialize_model_instance(student)
+
+#     except DoesNotExist:
+#         print(f"Группа с ID {group_id} не найдена.")
+#         raise
+#     except IntegrityError:
+#         print("Ошибка создания студента: нарушение ограничений БД.")
+#         raise
+
+
+# def update_student_by_id(student_id: int, **kwargs) -> Optional[Dict[str, Any]]:
+#     """
+#     Обновляет данные студента.
+
+#     Args:
+#         student_id: ID студента
+#         **kwargs: Поля для обновления (first_name, last_name, middle_name, group_id, notes)
+
+#     Returns:
+#         Словарь с обновленными данными студента или None если не найден
+
+#     Raises:
+#         DoesNotExist: Если студент или группа не найдены
+#         IntegrityError: При нарушении ограничений БД
+#     """
+#     try:
+#         student = Students.get(Students.id == student_id)
+
+#         # Если обновляется group_id, проверяем существование группы
+#         if "group_id" in kwargs:
+#             group = Groups.get(Groups.id == kwargs["group_id"])
+
+#         # Обновляем поля
+#         for field, value in kwargs.items():
+#             if hasattr(student, field):
+#                 setattr(student, field, value)
+
+#         student.updated_at = datetime.datetime.now()
+#         student.save()
+
+#         return serialize_model_instance(student)
+
+#     except DoesNotExist:
+#         print(f"Студент с ID {student_id} не найден или указана несуществующая группа.")
+#         raise
+#     except IntegrityError:
+#         print("Ошибка обновления студента: нарушение ограничений БД.")
+#         raise
+
+
+# def delete_student_by_id(student_id: int) -> bool:
+#     """
+#     Удаляет студента по ID.
+#     """
+#     try:
+#         student = Students.get(Students.id == student_id)
+#         student.delete_instance()
+#         return True
+#     except DoesNotExist:
+#         print(f"Студент с ID {student_id} не найден.")
+#         raise
+#     except IntegrityError:
+#         print("Невозможно удалить студента, так как он связан с другими записями.")
+#         raise
+
+
+# def get_students_list(
+#     group_id: Optional[int] = None,
+#     name_filter: Optional[str] = None,
+#     sort_by: str = "last_name",
+#     sort_direction: str = "asc",
+#     expand_fields: Optional[List[str]] = None,
+#     limit: Optional[int] = None,
+#     offset: Optional[int] = None,
+# ) -> List[Students]:
+#     """
+#     Получает список студентов с возможностью фильтрации, сортировки и пагинации.
+
+#     Args:
+#         group_id: ID группы для фильтрации (опционально)
+#         name_filter: Фильтр по имени/фамилии (опционально)
+#         sort_by: Поле для сортировки ('last_name', 'first_name', 'created_at')
+#         sort_direction: Направление сортировки ('asc' или 'desc')
+#         expand_fields: Список полей для раскрытия связанных объектов (например, ['group'])
+#         limit: Лимит записей для пагинации (опционально)
+#         offset: Смещение для пагинации (опционально)
+
+#     Returns:
+#         Список словарей с данными студентов
+#     """
+#     try:
+#         # Создаем базовый запрос
+#         query = Students.select()
+
+#         # Добавляем JOIN для связанных таблиц, если нужно
+#         if expand_fields and "group" in expand_fields:
+#             query = query.join(Groups)
+
+#         # Применяем фильтр по группе
+#         if group_id is not None:
+#             query = query.where(Students.group_id == group_id)
+
+#         # Применяем фильтр по имени
+#         if name_filter:
+#             name_filter = name_filter.strip()
+#             query = query.where(
+#                 (Students.first_name.contains(name_filter))
+#                 | (Students.last_name.contains(name_filter))
+#                 | (Students.middle_name.contains(name_filter))
+#             )
+
+#         # Применяем сортировку (Если поле не найдено, используем last_name по умолчанию)
+#         sort_field = getattr(Students, sort_by, Students.last_name)
+#         if sort_direction.lower() == "desc":
+#             query = query.order_by(sort_field.desc())
+#         else:
+#             query = query.order_by(sort_field.asc())
+
+#         # Применяем пагинацию
+#         if limit is not None:
+#             query = query.limit(limit)
+#         if offset is not None:
+#             query = query.offset(offset)
+
+#         # Выполняем запрос и сериализуем результаты
+#         students = list(query)
+#         return students
+
+#     except Exception as e:
+#         print(f"Ошибка при получении списка студентов: {e}")
+#         raise
+
+
+# def get_students_by_group_name(
+#     group_name: str, expand_fields: Optional[List[str]] = None
+# ) -> List[Dict[str, Any]]:
+#     """
+#     Получает список студентов по названию группы.
+
+#     Args:
+#         group_name: Название группы
+#         expand_fields: Список полей для раскрытия связанных объектов
+
+#     Returns:
+#         Список словарей с данными студентов
+#     """
+#     try:
+#         query = Students.select().join(Groups).where(Groups.group_name == group_name)
+#         query = query.order_by(Students.last_name.asc(), Students.first_name.asc())
+
+#         students = list(query)
+#         return [
+#             serialize_model_instance(student, expand_fields) for student in students
+#         ]
+
+#     except DoesNotExist:
+#         print(f"Группа с названием '{group_name}' не найдена.")
+#         return []
+#     except Exception as e:
+#         print(f"Ошибка при получении студентов группы: {e}")
+#         raise
+
+
+from sqlite3 import IntegrityError
+from models import Groups, Students
+from peewee import DoesNotExist, IntegrityError
+import json
+import datetime
+from typing import Optional
+
+
+# Как бы могла выглядить функция для сериализации в JSON одного объекта с неопределенным количеством полей?
+def serialize_model_instance(instance):
+    """
+    Сериализует объект модели в словарь, включая только определенные поля.
+    """
+    serialized_data = {}
+
+    # _meta.sorted_fields позволяет получить все поля модели в порядке их определения
+    for field in instance._meta.sorted_fields:
+        field_data = getattr(instance, field.name)
+
+        # Проверяем если данные являются объектом даты или времени- превращаем их в строку
+        if isinstance(field_data, (datetime.date, datetime.datetime)):
+            serialized_data[field.name] = field_data.isoformat()
+        else:
+            serialized_data[field.name] = field_data
+
+    json_data = json.dumps(serialized_data, indent=4, ensure_ascii=False)
+    return json_data
+
+
+def get_group_by_id(group_id: int) -> Optional[Groups]:
+    """
+    Получает группу по ID.
+    """
+    try:
+        group = Groups.get(Groups.id == group_id)
+        return group
+    except DoesNotExist:
+        print(f"Группа с ID {group_id} не найдена.")
+        return None
+
+
+def create_group(group_name: str) -> Groups:
+    """
+    Создает новую группу с заданным именем.
+    """
+    try:
+        group = Groups.create(group_name=group_name)
+        return group
+    # IntegrityError - нарушение целостности данных (уникальность, внежний ключ и т.д.)
+    except IntegrityError:
+        print("Группа с таким именем уже существует.")
+        raise
+
+
+def delete_group_by_id(group_id: int) -> bool:
+    """
+    Удаляет группу по ID.
+    """
+    try:
+        group = Groups.get(Groups.id == group_id)
+        group.delete_instance()
+        return True
+    except DoesNotExist:
+        print("Группа не найдена.")
+        raise
+    except IntegrityError:
+        print("Невозможно удалить группу, так как она связана с другими записями.")
+        raise
+
+
+def update_group_by_id(group_id: int, new_group_name: str) -> Optional[Groups]:
+    """
+    Обновляет имя группы по ID.
+    """
+    try:
+        group = Groups.get(Groups.id == group_id)
+        group.group_name = new_group_name
+        group.save()
+        return group
+    except DoesNotExist:
+        print("Группа не найдена.")
+        raise
+    except IntegrityError:
+        print("Невозможно обновить группу, так как новое имя уже существует.")
+        raise
+
+
+def get_groups_list(
+    sort_direction: str = "asc", name_filter: Optional[str] = None
+) -> list:
+    """
+    Получает список групп с возможностью сортировки и фильтрации по имени.
+    """
+    query = Groups.select()
+
+    if name_filter:
+        query = query.where(Groups.group_name.contains(name_filter))
+
+    if sort_direction == "asc":
+        query = query.order_by(Groups.group_name.asc())
+    elif sort_direction == "desc":
+        query = query.order_by(Groups.group_name.desc())
+
+    return list(query)
+
+
+# Протестируем список групп
+if __name__ == "__main__":
+    groups = get_groups_list(sort_direction="asc", name_filter="python")
+    if groups:
+        print("Список групп:")
+        for group in groups:
+            print(serialize_model_instance(group))
+    else:
+        print("Группы не найдены.")
+
+
+#################### СТУДЕНТЫ ####################
+
+
+def create_student(
+    first_name: str,
+    middle_name: Optional[str],
+    last_name: str,
+    group_id: int,
+    notes: Optional[str] = None,
+) -> Students:
+    # 1. Создание студента
+    student = Students.create(
+        first_name=first_name,
+        middle_name=middle_name,
+        last_name=last_name,
+        group_id=group_id,
+        notes=notes,
     )
-    .prefetch(Groups)
-)
 
-for student in students:
-    print(f"{student.first_name} {student.last_name} - {student.group_id.group_name}")
+    # 2. Возвращаем экземпляр студента
+    return student
 
 
-# Создание новой группы 
-# new_group = Groups.create(group_name="python412")
+def get_student_by_id(student_id: int) -> Optional[Students]:
+    """
+    Получает студента по ID.
+    """
+    try:
+        student = Students.get(Students.id == student_id)
+        return student
+    except DoesNotExist:
+        print("Студент не найден.")
+        raise
 
-# Метод, который не создаст объект, он уже существует
-new_group, created = Groups.get_or_create(group_name="python412")
-print(f"Группа создана: {created}, объект: {new_group}")
 
-new_groups = [
-    {"group_name": "python419"},
-    {"group_name": "python422"},
-]
+def delete_student_by_id(student_id: int) -> bool:
+    """
+    Удаляет студента по ID.
+    """
+    try:
+        student = Students.get(Students.id == student_id)
+        student.delete_instance()
+        return True
+    except DoesNotExist:
+        print("Студент не найден.")
+        raise
+    except IntegrityError:
+        print("Невозможно удалить студента, так как он связан с другими записями.")
+        raise
 
-new_groups_objects = [Groups(**group) for group in new_groups]
 
-#  Создаем группы в БД
-# Groups.bulk_create(new_groups_objects)
+def update_student_by_id(**kwargs) -> Optional[Students]:
+    # 1. берем модель и проверяем что в кваргах есть все поля (кроме created_at updated_at)
+    required_fields = ["id", "first_name", "last_name", "group_id", "notes"]
 
-# Проверим, что группы создались
-new_groups = Groups.select()
-print(f"Количество групп в БД: {len(all_groups)}")
+    if not all(field in kwargs for field in required_fields):
+        raise ValueError("Отсутствуют обязательные поля для обновления студента.")
 
-new_student_data = {
-    "first_name": "Утрэд", "last_name": "Рагнарсон", "middle_name": "Беббанбургский", "group_name": "python413", "notes": "Студент из Южной Дании",
-    
-}
+    # 2. Получаем студента по ID
+    student_id = kwargs.pop("id")
 
-# new_student = Students.create(
-#     **new_student_data
-# )
+    try:
+        student = Students.get(Students.id == student_id)
 
-# Поиск студента Утрэд Рагнарсон Беббанбургский
-baggins = Students.get(Students.last_name == "Рагнарсон")
-print(f"Студент найден: {baggins.first_name} {baggins.last_name}")
+        # 3. Обновляем поля студента
+        student.update(**kwargs)
+
+        student.save()
+        return student
+
+    except DoesNotExist:
+        print("Студент не найден.")
+        raise
+
+
+def get_students_list(
+    sort_direction: str = "asc", group_filter: Optional[str] = None
+) -> list:
+    """
+    Получает список студентов с возможностью сортировки и фильтрации по названию группы.
+    """
+    query = Students.select().join(Groups)
+
+    if group_filter:
+        query = query.where(Groups.group_name.contains(group_filter))
+
+    if sort_direction == "asc":
+        query = query.order_by(Students.last_name.asc())
+    elif sort_direction == "desc":
+        query = query.order_by(Students.last_name.desc())
+
+    return list(query)
+
+
+# Протестируем добычу студентов
+if __name__ == "__main__":
+    students = get_students_list(sort_direction="asc", group_filter="413")
+    if students:
+        print("Список студентов:")
+        for student in students:
+            print(student)
+    else:
+        print("Студенты не найдены.")
