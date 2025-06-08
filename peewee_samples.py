@@ -187,10 +187,13 @@ for student in students_413:
 # Одна из частых ошибок, с которой сталкиваются новички, — это попытка использовать стандартные логические операторы Python `and`, `or`, `not` вместо перегруженных Peewee операторов `&`, `|`, `~`. Стандартные операторы Python не могут быть перегружены для построения SQL-выражений и будут интерпретироваться как обычные логические операции Python над результатами выражений (которые обычно приводятся к `True` или `False`), что приведет к неверным SQL-запросам или ошибкам времени выполнения. Поэтому критически важно запомнить и использовать именно `&`, `|` и `~`.
 
 # 7. Найти всех студентов где в first_name входит "алекс" или "влад"
-print(f"*" * 50)
+print(f'*' * 50)
 
-students = Students.select().where(
-    (Students.first_name.contains("лекс")) | (Students.first_name.contains("лад"))
+students = (
+    Students.select()
+    .where(
+        (Students.first_name.contains("лекс")) | (Students.first_name.contains("лад"))
+    )
 )
 
 for student in students:
@@ -203,10 +206,12 @@ for student in students:
 students = (
     Students.select()
     .join(Groups)
-    .where((Students.middle_name.contains("вич") & (Groups.group_name == "python413")))
-    .prefetch(Groups)  # Используем prefetch для избежания N+1 запросов
+    .where(
+        (Students.middle_name.contains("вич")
+        & (Groups.group_name == "python413"))
+    ).prefetch(Groups) # Используем prefetch для избежания N+1 запросов
 )
-print(f"*" * 50)
+print(f'*' * 50)
 for student in students:
     print(
         f"{student.first_name} {student.middle_name} - {student.group_id.group_name}"
@@ -254,12 +259,10 @@ new_student_data = {
 #     **new_student_data
 # )
 
-# Поиск студента - Бэггинс
+# Поиск студента - Бэггинс 
 baggins = Students.get(Students.last_name == "Бэггинс")
 
-print(
-    f"Студент найден: {baggins.first_name} {baggins.last_name} {baggins.group_id.group_name}"
-)
+print(f"Студент найден: {baggins.first_name} {baggins.last_name} {baggins.group_id.group_name}")
 
 # Обновление студента. Изменим заметки по студенту baggins
 baggins.notes = "Студент из Шира. После возвращения с Роковой горы стал более сдержанным. Однако серебрянные вилки продолжают пропадать."
@@ -269,9 +272,7 @@ baggins.save()
 
 # В одну строку добыть, обновить и сохранить
 baggins = (
-    Students.update(
-        notes="Студент из Шира. После возвращения с Роковой горы стал более сдержанным. Однако серебрянные вилки продолжают пропадать."
-    )
+    Students.update(notes="Студент из Шира. После возвращения с Роковой горы стал более сдержанным. Однако серебрянные вилки продолжают пропадать.")
     .where(Students.last_name == "Бэггинс")
     .execute()
 )
